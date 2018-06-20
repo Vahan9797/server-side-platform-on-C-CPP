@@ -9,7 +9,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
-#include "../../headers/main-server.h"
+#include "../../headers/server.h"
 
 int main(int argc, char const *argv[]) {
     struct sockaddr_in address;

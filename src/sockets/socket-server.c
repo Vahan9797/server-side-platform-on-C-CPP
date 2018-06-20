@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <string.h>
-#include "../../headers/main-server.h"
+#include "../../headers/server.h"
 
 int main(int argc, char const *argv[]) {
     int server_fd, new_socket, valread;
