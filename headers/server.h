@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <limits.h>
 #include <errno.h>
 #include <string.h>
 #include <fcntl.h>
@@ -20,7 +21,7 @@
 #define DEFAULT_HOST "127.0.0.1"
 #define DEFAULT_PORT 8080
 #define DEFAULT_PROTOCOL 0 // IP
-#define DEFAULT_STATIC_FILES_FOLDER "static"
+#define DEFAULT_STATIC_FILES_FOLDER "../static" // execution file is in cmake-build-debug, so the static folder is level above
 #define BUFSIZE 8096 // for console helper messages
 #define ERROR 42
 #define SORRY 43

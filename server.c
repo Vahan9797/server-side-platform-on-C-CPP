@@ -6,14 +6,15 @@
 #include "headers/server.h"
 
 int main(int argc, char **argv) {
-    int i, port, pid, listenfd, socketfd;
+    char static_dir[PATH_MAX + 1];
+    int i, port, pid, listenfd, socketfd, hit;
     size_t length;
     static struct sockaddr_in cli_addr;
     static struct sockaddr_in serv_addr;
 
-    if(argc < 3 || argc > 3 || !strcmp(argv[1], "-?")) {
+    if(argc != 1 && (argc < 3 || argc > 3 || !strcmp(argv[1], "-?"))) {
         (void)printf("usage: server [port] [server directory] &\t Example: server 80\n\n");
-        (void)printf("\nOnly Supports:\n");
+        (void)printf("\nOnly Supports:");
 
         for(i = 0; extensions[i].ext != 0; i++) {
             (void)printf(" %s", extensions[i].ext);
@@ -23,17 +24,23 @@ int main(int argc, char **argv) {
         exit(0);
     }
 
-    if(!strncmp(argv[2], "/",    2) || !strncmp(argv[2], "/etc", 5) ||
-       !strncmp(argv[2], "/bin", 5) || !strncmp(argv[2], "/lib", 5) ||
-       !strncmp(argv[2], "/tmp", 5) || !strncmp(argv[2], "/usr", 5) ||
-       !strncmp(argv[2], "/dev", 5) || !strncmp(argv[2], "/sbin", 6)
+    if(argv[2] && strstr(argv[2], "PATH") == NULL) {
+        sprintf(static_dir, "%s", argv[2]);
+    } else {
+        realpath(DEFAULT_STATIC_FILES_FOLDER, static_dir);
+    }
+
+    if(!strncmp(static_dir, "/",    2) || !strncmp(static_dir, "/etc", 5) ||
+       !strncmp(static_dir, "/bin", 5) || !strncmp(static_dir, "/lib", 5) ||
+       !strncmp(static_dir, "/tmp", 5) || !strncmp(static_dir, "/usr", 5) ||
+       !strncmp(static_dir, "/dev", 5) || !strncmp(static_dir, "/sbin", 6)
       ) {
-        (void)printf("ERROR: Bad top directory %s, see server -?\n", argv[2]);
+        (void)printf("ERROR: Bad top directory %s, see server -?\n", static_dir);
         exit(3);
     }
 
-    if(chdir(argv[2]) == -1) {
-        (void)printf("ERROR: Can't change to directory %s\n", argv[2]);
+    if(chdir(static_dir) == -1) {
+        (void)printf("ERROR: Can't change to directory %s\n", static_dir);
         exit(4);
     }
 
@@ -50,13 +57,13 @@ int main(int argc, char **argv) {
 
     (void)setpgrp();
 
-    server_log(LOG, "HTTP server starting", argv[1], getpid());
+    port = atoi(argv[1]) || DEFAULT_PORT;
+
+    server_log(LOG, "HTTP server starting", (char *) port, getpid());
 
     if((listenfd = socket(AF_INET, SOCK_STREAM, DEFAULT_PROTOCOL)) < 0) {
         server_log(ERROR, "System call", "socket", 0);
     }
-
-    port = atoi(argv[1]) || DEFAULT_PORT;
 
     if(port < 0 || port > 60000) {
         server_log(ERROR, "Invalid port number try [1, 60000]", argv[1], 0);
@@ -74,7 +81,7 @@ int main(int argc, char **argv) {
         server_log(ERROR, "System call", "listen", 0);
     }
 
-    for(int hit = 1;; hit++) {
+    for(hit = 1;; hit++) {
         length = sizeof(cli_addr);
 
         if((socketfd = accept(listenfd, (struct sockaddr *)&cli_addr, (socklen_t *) length)) < 0) {
@@ -196,7 +203,7 @@ void web(int fd, int hit) {
     while((ret = read(file_fd, buffer, BUFSIZE)) > 0) {
         (void)write(fd, buffer, ret);
     }
-    #ifdef LINUX
+    #ifdef UNIX
         sleep(1);
     #endif
         exit(1);
