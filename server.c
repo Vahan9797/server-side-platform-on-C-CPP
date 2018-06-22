@@ -7,7 +7,8 @@
 
 int main(int argc, char **argv) {
     char static_dir[PATH_MAX + 1];
-    int i, port, pid, listenfd, socketfd, hit;
+    int i, pid, listenfd, socketfd, hit;
+    long port = DEFAULT_PORT;
     size_t length;
     static struct sockaddr_in cli_addr;
     static struct sockaddr_in serv_addr;
@@ -44,58 +45,61 @@ int main(int argc, char **argv) {
         exit(4);
     }
 
-    if(fork() != 0) {
-        return 0;
-    }
+    if(fork() == 0) {
+        (void)signal(SIGCLD, SIG_IGN);
+        (void)signal(SIGHUP, SIG_IGN);
 
-    (void)signal(SIGCLD, SIG_IGN);
-    (void)signal(SIGHUP, SIG_IGN);
-
-    for(i = 0; i < 32; i++) {
-        (void)close(i);
-    }
-
-    (void)setpgrp();
-
-    port = atoi(argv[1]) || DEFAULT_PORT;
-
-    server_log(LOG, "HTTP server starting", (char *) port, getpid());
-
-    if((listenfd = socket(AF_INET, SOCK_STREAM, DEFAULT_PROTOCOL)) < 0) {
-        server_log(ERROR, "System call", "socket", 0);
-    }
-
-    if(port < 0 || port > 60000) {
-        server_log(ERROR, "Invalid port number try [1, 60000]", argv[1], 0);
-    }
-
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    serv_addr.sin_port = htons((uint16_t) port);
-
-    if(bind(listenfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-        server_log(ERROR, "System call", "bind", 0);
-    }
-
-    if(listen(listenfd, 64) < 0) {
-        server_log(ERROR, "System call", "listen", 0);
-    }
-
-    for(hit = 1;; hit++) {
-        length = sizeof(cli_addr);
-
-        if((socketfd = accept(listenfd, (struct sockaddr *)&cli_addr, (socklen_t *) length)) < 0) {
-            server_log(ERROR, "System call", "accept", 0);
+        for(i = 0; i < 32; i++) {
+            (void)close(i);
         }
 
-        if((pid = fork()) < 0) {
-            server_log(ERROR, "System call", "fork", 0);
-        } else {
-            if(pid == 0) {
-                (void)close(listenfd);
-                web(socketfd, hit);
+        (void)setpgrp();
+
+        if(argv[1] != NULL && strstr(argv[1], "PATH") == NULL) {
+            port = strtol(argv[1], NULL, 10);
+        }
+
+        char portParse[5];
+        sprintf(portParse, "%lu", port); // converting port to string for segmentation fault error
+
+        server_log(LOG, "HTTP server starting", portParse, getpid());
+
+        if((listenfd = socket(AF_INET, SOCK_STREAM, DEFAULT_PROTOCOL)) < 0) {
+            server_log(ERROR, "System call", "socket", 0);
+        }
+
+        if(port < 0 || port > 60000) {
+            server_log(ERROR, "Invalid port number try [1, 60000]", argv[1], 0);
+        }
+
+        serv_addr.sin_family = AF_INET;
+        serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+        serv_addr.sin_port = htons((uint16_t) port);
+
+        if(bind(listenfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+            server_log(ERROR, "System call", "bind", 0);
+        }
+
+        if(listen(listenfd, 64) < 0) {
+            server_log(ERROR, "System call", "listen", 0);
+        }
+
+        for(hit = 1;; hit++) {
+            length = sizeof(cli_addr);
+
+            if((socketfd = accept(listenfd, (struct sockaddr *)&cli_addr, (socklen_t *) length)) < 0) {
+                server_log(ERROR, "System call", "accept", 0);
+            }
+
+            if((pid = fork()) < 0) {
+                server_log(ERROR, "System call", "fork", 0);
             } else {
-                (void)close(socketfd);
+                if(pid == 0) {
+                    (void)close(listenfd);
+                    web(socketfd, hit);
+                } else {
+                    (void)close(socketfd);
+                }
             }
         }
     }
@@ -103,7 +107,7 @@ int main(int argc, char **argv) {
 
 void server_log(int type, char *s1, char *s2, int num) {
     int fd;
-    char logBuffer[BUFSIZE*2];
+    char logBuffer[BUFSIZE*2] = {0};
 
     switch(type) {
         case ERROR:
